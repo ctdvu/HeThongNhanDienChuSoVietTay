@@ -1,0 +1,17 @@
+{
+  "model_name": "Deep_CNN_MNIST",
+  "architecture": "12-layer Compositional CNN",
+  "accuracy": 0.9951000213623047,
+  "loss": 0.015492225997149944,
+  "num_classes": 10,
+  "input_shape": [
+    28,
+    28,
+    1
+  ],
+  "train_samples": 60000,
+  "test_samples": 10000,
+  "epochs_trained": 14,
+  "framework": "TensorFlow/Keras",
+  "saved_at": "2026-10-22 01:44:29"
+}

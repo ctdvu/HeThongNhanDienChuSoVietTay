@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🔢 MNIST Digit Recognizer - CNN</title>
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --accent-purple: #6C63FF;
+            --accent-green: #2ECC71;
+            --accent-pink: #FF6B9D;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --text-muted: rgba(255, 255, 255, 0.4);
+            --bar-bg: #2a2a4a;
+            --error-bg: rgba(255, 59, 59, 0.15);
+            --error-border: rgba(255, 59, 59, 0.4);
+            --warning-bg: rgba(255, 180, 0, 0.12);
+            --warning-border: rgba(255, 180, 0, 0.4);
+        }
+
+        html, body {
+            min-height: 100%;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        /* ===== HEADER ===== */
+        header {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--card-border);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            line-height: 1;
+            filter: drop-shadow(0 0 12px rgba(108, 99, 255, 0.6));
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #a78bfa, #38bdf8, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+        }
+
+        header p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.1rem;
+        }
+
+        /* ===== CONTAINER ===== */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        /* ===== ALERT ===== */
+        .alert-warning {
+            background: var(--warning-bg);
+            border: 1px solid var(--warning-border);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+            color: #fbbf24;
+            font-size: 0.9rem;
+        }
+
+        .alert-warning code {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85em;
+        }
+
+        /* ===== MAIN GRID ===== */
+        .main-grid {
+            display: flex;
+            flex-direction: row;
+            gap: 1.5rem;
+            align-items: flex-start;
+        }
+
+        /* ===== CARD ===== */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 1.75rem;
+            flex: 1;
+        }
+
+        .card h2 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        /* ===== CANVAS CARD ===== */
+        .canvas-card {
+            flex: 0 0 auto;
+            width: 360px;
+        }
+
+        .canvas-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        #drawingCanvas {
+            width: 280px;
+            height: 280px;
+            background: #ffffff;
+            border-radius: 16px;
+            cursor: crosshair;
+            touch-action: none;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 3px rgba(108, 99, 255, 0.3);
+            display: block;
+        }
+
+        #drawingCanvas:hover {
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 3px rgba(108, 99, 255, 0.6);
+        }
+
+        /* ===== CONTROLS ===== */
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 0.65rem 1rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: 0.01em;
+        }
+
+        .btn-clear {
+            background: rgba(255, 59, 59, 0.15);
+            color: #ff6b6b;
+            border: 1px solid rgba(255, 59, 59, 0.3);
+        }
+
+        .btn-clear:hover {
+            background: rgba(255, 59, 59, 0.28);
+            border-color: rgba(255, 59, 59, 0.6);
+            transform: translateY(-1px);
+        }
+
+        .btn-predict {
+            background: linear-gradient(135deg, var(--accent-purple), #38bdf8);
+            color: #ffffff;
+            border: 1px solid transparent;
+        }
+
+        .btn-predict:hover {
+            opacity: 0.88;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(108, 99, 255, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        /* ===== BRUSH CONTROL ===== */
+        .brush-control {
+            margin-bottom: 0.75rem;
+        }
+
+        .brush-control label {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            display: block;
+            margin-bottom: 0.4rem;
+        }
+
+        .brush-control input[type="range"] {
+            width: 100%;
+            height: 4px;
+            border-radius: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: linear-gradient(90deg, var(--accent-purple), #38bdf8);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .brush-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #ffffff;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            border: 2px solid var(--accent-purple);
+        }
+
+        .brush-control input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #ffffff;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            border: 2px solid var(--accent-purple);
+        }
+
+        .tip {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border: 1px dashed var(--card-border);
+        }
+
+        /* ===== RESULT CARD ===== */
+        .result-card {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* ===== DIGIT DISPLAY ===== */
+        .digit-display {
+            text-align: center;
+            margin-bottom: 1rem;
+            padding: 1.25rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 14px;
+            border: 1px solid var(--card-border);
+        }
+
+        .big-digit {
+            font-size: 6rem;
+            font-weight: 800;
+            line-height: 1;
+            background: linear-gradient(135deg, #a78bfa, #38bdf8, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 20px rgba(108, 99, 255, 0.5));
+            transition: all 0.3s ease;
+        }
+
+        .confidence {
+            font-size: 1rem;
+            color: var(--accent-green);
+            font-weight: 600;
+            margin-top: 0.5rem;
+            min-height: 1.5rem;
+        }
+
+        /* ===== LOADING ===== */
+        #loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .spinner {
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(108, 99, 255, 0.3);
+            border-top-color: var(--accent-purple);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ===== ERROR BOX ===== */
+        .error-box {
+            background: var(--error-bg);
+            border: 1px solid var(--error-border);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            color: #ff6b6b;
+            font-size: 0.88rem;
+            margin-bottom: 0.75rem;
+        }
+
+        /* ===== TOP-3 SECTION ===== */
+        .top3-section {
+            background: rgba(108, 99, 255, 0.08);
+            border: 1px solid rgba(108, 99, 255, 0.2);
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .top3-section h4 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .top-items-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .top-item {
+            display: inline-block;
+            padding: 0.3rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.83rem;
+            font-weight: 600;
+        }
+
+        .top-first {
+            background: linear-gradient(135deg, rgba(108,99,255,0.3), rgba(46,204,113,0.3));
+            border: 1px solid rgba(108, 99, 255, 0.5);
+            color: #a78bfa;
+        }
+
+        .top-second {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: var(--text-secondary);
+        }
+
+        .top-third {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-muted);
+        }
+
+        /* ===== PROB SECTION ===== */
+        .prob-section {
+            margin-top: 0.5rem;
+        }
+
+        .prob-section h3 {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .prob-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.45rem;
+        }
+
+        .digit-label {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            width: 16px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .bar-container {
+            flex: 1;
+            height: 10px;
+            background: var(--bar-bg);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, rgba(108,99,255,0.4), rgba(46,204,113,0.4));
+            border-radius: 6px;
+            transition: width 0.4s ease, background 0.3s ease;
+        }
+
+        .pct-text {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            width: 40px;
+            text-align: right;
+            flex-shrink: 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ===== MODEL INFO ===== */
+        .model-info {
+            margin-top: 1.25rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--card-border);
+        }
+
+        .model-info h4 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem;
+        }
+
+        .info-item {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .info-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .info-value {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--accent-purple);
+        }
+
+        /* ===== FOOTER ===== */
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--card-border);
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .main-grid {
+                flex-direction: column;
+            }
+
+            .canvas-card {
+                width: 100%;
+            }
+
+            .canvas-wrapper {
+                width: 100%;
+            }
+
+            #drawingCanvas {
+                width: 100%;
+                max-width: 280px;
+                height: auto;
+                aspect-ratio: 1 / 1;
+            }
+
+            header {
+                padding: 0.85rem 1rem;
+            }
+
+            header h1 {
+                font-size: 1.1rem;
+            }
+
+            .logo {
+                font-size: 1.8rem;
+            }
+
+            .container {
+                padding: 1rem 1rem 3rem;
+            }
+
+            .big-digit {
+                font-size: 4.5rem;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .controls {
+                flex-direction: column;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-inner">
+        <div class="logo">🔢</div>
+        <div>
+            <h1>Nhận Diện Chữ Số Viết Tay</h1>
+            <p>Powered by Convolutional Neural Network (CNN)</p>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    {% if not model_loaded %}
+    <div class="alert-warning">
+        ⚠️ Mô hình chưa được train. Hãy chạy notebook <code>cnn_mnist_training.ipynb</code> trước để tạo file model trong thư mục <code>artifacts/</code>!
+    </div>
+    {% endif %}
+
+    <div class="main-grid">
+        <!-- ===== CANVAS SECTION ===== -->
+        <div class="card canvas-card">
+            <h2>✏️ Vẽ Chữ Số Của Bạn</h2>
+            <div class="canvas-wrapper">
+                <canvas id="drawingCanvas" width="280" height="280"></canvas>
+            </div>
+            <div class="controls">
+                <button class="btn btn-clear" onclick="clearCanvas()">🗑️ Xóa</button>
+                <button class="btn btn-predict" onclick="predictDigit()">🔍 Dự Đoán</button>
+            </div>
+            <div class="brush-control">
+                <label>🖊️ Độ dày: <span id="brushVal">22</span>px</label>
+                <input type="range" id="brushSize" min="10" max="40" value="22"
+                       oninput="document.getElementById('brushVal').textContent = this.value">
+            </div>
+            <p class="tip">💡 Vẽ số từ 0-9 · Tự động dự đoán sau 1.5 giây</p>
+        </div>
+
+        <!-- ===== RESULT SECTION ===== -->
+        <div class="card result-card">
+            <h2>📊 Kết Quả Dự Đoán</h2>
+
+            <div class="digit-display">
+                <div id="result-digit" class="big-digit">?</div>
+                <div id="confidence-text" class="confidence"></div>
+            </div>
+
+            <div id="loading" style="display:none;">
+                <div class="spinner"></div>
+                <span>Đang xử lý...</span>
+            </div>
+
+            <div id="error-box" class="error-box" style="display:none;"></div>
+
+            <div id="top3-section" class="top3-section" style="display:none;"></div>
+
+            <div class="prob-section">
+                <h3>Xác suất từng chữ số</h3>
+                {% for i in range(10) %}
+                <div class="prob-row">
+                    <span class="digit-label">{{ i }}</span>
+                    <div class="bar-container">
+                        <div class="bar-fill" id="fill-{{ i }}" style="width:0%"></div>
+                    </div>
+                    <span class="pct-text" id="pct-{{ i }}">0.0%</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if metadata %}
+            <div class="model-info">
+                <h4>ℹ️ Thông Tin Mô Hình</h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Accuracy</span>
+                        <span class="info-value">{{ "%.2f"|format(metadata.get('accuracy', 0) * 100) }}%</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Framework</span>
+                        <span class="info-value">{{ metadata.get('framework', 'TF/Keras') }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Train samples</span>
+                        <span class="info-value">{{ "{:,}".format(metadata.get('train_samples', 0)) }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Epochs</span>
+                        <span class="info-value">{{ metadata.get('epochs_trained', '-') }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<footer>
+    <p>🎓 CNN MNIST Demo &middot; TensorFlow/Keras &middot; Deployed on Render</p>
+</footer>
+
+<script>
+    // === Canvas Setup ===
+    const canvas = document.getElementById('drawingCanvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let autoTimer = null;
+
+    // Init canvas trắng
+    function initCanvas() {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    initCanvas();
+
+    // Lấy vị trí chuẩn (có scale cho canvas CSS vs actual size)
+    function getCanvasPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = canvas.width / rect.width;
+        const sy = canvas.height / rect.height;
+        const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+        const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+        return { x: (clientX - rect.left) * sx, y: (clientY - rect.top) * sy };
+    }
+
+    // Mouse events
+    canvas.addEventListener('mousedown', function(e) {
+        isDrawing = true;
+        const p = getCanvasPos(e);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+    });
+
+    canvas.addEventListener('mousemove', function(e) {
+        if (!isDrawing) return;
+        doDraw(e);
+    });
+
+    canvas.addEventListener('mouseup', function() {
+        isDrawing = false;
+        schedulePredict();
+    });
+
+    canvas.addEventListener('mouseleave', function() {
+        if (isDrawing) {
+            isDrawing = false;
+            schedulePredict();
+        }
+    });
+
+    // Touch events
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        isDrawing = true;
+        const touch = e.touches[0];
+        const p = getCanvasPos(touch);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        if (!isDrawing) return;
+        doDraw(e.touches[0]);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        isDrawing = false;
+        schedulePredict();
+    }, { passive: false });
+
+    function doDraw(e) {
+        const p = getCanvasPos(e);
+        const brushSize = parseInt(document.getElementById('brushSize').value) || 22;
+        ctx.lineWidth = brushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+    }
+
+    function clearCanvas() {
+        if (autoTimer) {
+            clearTimeout(autoTimer);
+            autoTimer = null;
+        }
+        initCanvas();
+        document.getElementById('result-digit').textContent = '?';
+        document.getElementById('confidence-text').textContent = '';
+        document.getElementById('error-box').style.display = 'none';
+        document.getElementById('top3-section').style.display = 'none';
+        for (let i = 0; i < 10; i++) {
+            const fill = document.getElementById('fill-' + i);
+            if (fill) {
+                fill.style.width = '0%';
+                fill.style.background = 'linear-gradient(90deg, rgba(108,99,255,0.4), rgba(46,204,113,0.4))';
+            }
+            const pct = document.getElementById('pct-' + i);
+            if (pct) pct.textContent = '0.0%';
+        }
+    }
+
+    function schedulePredict() {
+        if (autoTimer) clearTimeout(autoTimer);
+        autoTimer = setTimeout(predictDigit, 1500);
+    }
+
+    async function predictDigit() {
+        if (autoTimer) {
+            clearTimeout(autoTimer);
+            autoTimer = null;
+        }
+
+        const loading = document.getElementById('loading');
+        const errBox = document.getElementById('error-box');
+
+        loading.style.display = 'flex';
+        errBox.style.display = 'none';
+
+        try {
+            const imgData = canvas.toDataURL('image/png');
+
+            const resp = await fetch('/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imgData })
+            });
+
+            const json = await resp.json();
+
+            if (json.error) {
+                throw new Error(json.error);
+            }
+
+            // Cập nhật chữ số dự đoán
+            document.getElementById('result-digit').textContent = json.digit;
+            document.getElementById('confidence-text').textContent = 'Độ tin cậy: ' + json.confidence.toFixed(1) + '%';
+
+            // Cập nhật probability bars
+            json.probabilities.forEach(function(p, i) {
+                const fill = document.getElementById('fill-' + i);
+                const pct = document.getElementById('pct-' + i);
+                if (fill) {
+                    fill.style.width = p.toFixed(1) + '%';
+                    if (i === json.digit) {
+                        fill.style.background = 'linear-gradient(90deg, #6C63FF, #2ECC71)';
+                    } else {
+                        fill.style.background = 'linear-gradient(90deg, rgba(108,99,255,0.4), rgba(46,204,113,0.4))';
+                    }
+                }
+                if (pct) pct.textContent = p.toFixed(1) + '%';
+            });
+
+            // Top-3 section
+            const top3Div = document.getElementById('top3-section');
+            top3Div.style.display = 'block';
+
+            const medals = ['🥇', '🥈', '🥉'];
+            const cssClasses = ['top-first', 'top-second', 'top-third'];
+
+            let top3HTML = '<h4>🏆 Top-3 ứng cử viên:</h4><div class="top-items-row">';
+            json.top3.forEach(function(t, idx) {
+                top3HTML += '<span class="top-item ' + cssClasses[idx] + '">'
+                    + medals[idx] + ' Số ' + t.digit + ': ' + t.prob.toFixed(1) + '%'
+                    + '</span>';
+            });
+            top3HTML += '</div>';
+            top3Div.innerHTML = top3HTML;
+
+        } catch (err) {
+            errBox.style.display = 'block';
+            errBox.textContent = '⚠️ ' + err.message;
+        } finally {
+            loading.style.display = 'none';
+        }
+    }
+</script>
+
+</body>
+</html>
